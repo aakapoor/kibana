@@ -49,9 +49,9 @@ export default function ColumnChartFactory(Private) {
       bars
       .enter()
       .append('rect')
-      .call(this.baseChart._addIdentifier)
-      .attr('fill', function (d) {
-        return color(d.label || data.label);
+      .attr('data-label', data.label)
+      .attr('fill', () => {
+        return color(data.label);
       });
 
       self.updateBars(bars);
@@ -73,9 +73,7 @@ export default function ColumnChartFactory(Private) {
      * @returns {D3.UpdateSelection}
      */
     updateBars(bars) {
-      const offset = this.seriesConfig.mode;
-
-      if (offset === 'stacked') {
+      if (this.seriesConfig.mode === 'stacked') {
         return this.addStackedBars(bars);
       }
       return this.addGroupedBars(bars);
@@ -168,6 +166,7 @@ export default function ColumnChartFactory(Private) {
       const groupSpacingPercentage = 0.15;
       const isTimeScale = this.getCategoryAxis().axisConfig.isTimeDomain();
       const isHorizontal = this.getCategoryAxis().axisConfig.isHorizontal();
+      const isLogScale = this.getValueAxis().axisConfig.isLogScale();
       const minWidth = 1;
       let barWidth;
 
@@ -207,7 +206,8 @@ export default function ColumnChartFactory(Private) {
       }
 
       function heightFunc(d) {
-        return Math.abs(yScale(0) - yScale(d.y));
+        const baseValue = isLogScale ? 1 : 0;
+        return Math.abs(yScale(baseValue) - yScale(d.y));
       }
 
       // update

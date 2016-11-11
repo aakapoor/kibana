@@ -8,7 +8,7 @@ import notQuiteEnoughVariables from 'fixtures/vislib/mock_data/not_enough_data/_
 import $ from 'jquery';
 import FixturesVislibVisFixtureProvider from 'fixtures/vislib/_vis_fixture';
 import PersistedStatePersistedStateProvider from 'ui/persisted_state/persisted_state';
-const someOtherVariables = {
+const dataTypesArray = {
   'series pos': require('fixtures/vislib/mock_data/date_histogram/_series'),
   'series pos neg': require('fixtures/vislib/mock_data/date_histogram/_series_pos_neg'),
   'series neg': require('fixtures/vislib/mock_data/date_histogram/_series_neg'),
@@ -20,12 +20,13 @@ const someOtherVariables = {
 const visLibParams = {
   type: 'area',
   addLegend: true,
-  addTooltip: true
+  addTooltip: true,
+  mode: 'stacked'
 };
 
 
-_.forOwn(someOtherVariables, function (variablesAreCool, imaVariable) {
-  describe('Vislib Area Chart Test Suite for ' + imaVariable + ' Data', function () {
+_.forOwn(dataTypesArray, function (dataType, dataTypeName) {
+  describe('Vislib Area Chart Test Suite for ' + dataTypeName + ' Data', function () {
     let vis;
     let persistedState;
 
@@ -34,7 +35,7 @@ _.forOwn(someOtherVariables, function (variablesAreCool, imaVariable) {
       vis = Private(FixturesVislibVisFixtureProvider)(visLibParams);
       persistedState = new (Private(PersistedStatePersistedStateProvider))();
       vis.on('brush', _.noop);
-      vis.render(variablesAreCool, persistedState);
+      vis.render(dataType, persistedState);
     }));
 
     afterEach(function () {
@@ -83,9 +84,9 @@ _.forOwn(someOtherVariables, function (variablesAreCool, imaVariable) {
 
       beforeEach(function () {
         vis.handler.charts.forEach(function (chart) {
-          stackedData = chart.stackData(chart.chartData);
+          stackedData = chart.chartData;
 
-          isStacked = stackedData['ValueAxis-1'].every(function (arr) {
+          isStacked = stackedData.series.every(function (arr) {
             return arr.values.every(function (d) {
               return _.isNumber(d.y0);
             });
@@ -222,7 +223,7 @@ _.forOwn(someOtherVariables, function (variablesAreCool, imaVariable) {
     describe('defaultYExtents is true', function () {
       beforeEach(function () {
         vis.visConfigArgs.defaultYExtents = true;
-        vis.render(variablesAreCool, persistedState);
+        vis.render(dataType, persistedState);
       });
 
       it('should return yAxis extents equal to data extents', function () {

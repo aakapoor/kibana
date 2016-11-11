@@ -10,8 +10,8 @@ export default function AxisScaleFactory(Private) {
       this.visConfig = visConfig;
 
       if (this.axisConfig.get('type') === 'category') {
-        this.values = this.visConfig.data.xValues();
-        this.ordered = this.visConfig.data.get('ordered');
+        this.values = this.axisConfig.values;
+        this.ordered = this.axisConfig.ordered;
       }
     };
 
@@ -23,7 +23,6 @@ export default function AxisScaleFactory(Private) {
       const config = this.axisConfig;
       return domain.map((val) => {
         val = parseInt(val, 10);
-
         if (isNaN(val)) throw new Error(val + ' is not a valid number');
         if (config.isPercentage() && config.isUserDefined()) return val / 100;
         return val;
@@ -90,20 +89,16 @@ export default function AxisScaleFactory(Private) {
     getAllPoints() {
       const config = this.axisConfig;
       const data = this.visConfig.data.chartData();
-      const chartPoints = _.reduce(data, (chartPoints, chart) => {
-        const stackedData = {};
-        const points = this.visConfig.get('chart.series').reduce((points, seri, i) => {
-          const matchingValueAxis = !!seri.valueAxis && seri.valueAxis === config.get('id');
+      const chartPoints = _.reduce(data, (chartPoints, chart, chartIndex) => {
+        const points = chart.series.reduce((points, seri, seriIndex) => {
+          const seriConfig = this.visConfig.get(`charts[${chartIndex}].series[${seriIndex}]`);
+          const matchingValueAxis = !!seriConfig.valueAxis && seriConfig.valueAxis === config.get('id');
           const isFirstAxis = config.get('id') === this.visConfig.get('valueAxes[0].id');
-          const shouldStackData = seri.mode === 'stacked';
 
-          if (matchingValueAxis || (!seri.valueAxis && isFirstAxis)) {
-            // this wont work correctly with stacked data ... it will stack all n charts
-            const axisPoints = chart.series[i].values.map(val => {
-              if (shouldStackData) {
-                const y0 = stackedData[val.x] ? stackedData[val.x] : 0;
-                stackedData[val.x] = y0 + val.y;
-                return stackedData[val.x];
+          if (matchingValueAxis || (!seriConfig.valueAxis && isFirstAxis)) {
+            const axisPoints = seri.values.map(val => {
+              if (val.y0) {
+                return val.y0 + val.y;
               }
               return val.y;
             });
@@ -161,10 +156,9 @@ export default function AxisScaleFactory(Private) {
       return [1, max];
     };
 
-    getD3Scale(scaleType) {
-      // todo: why do we need this renaming ?
-      if (scaleType === 'square root') scaleType = 'sqrt'; // Rename 'square root' to 'sqrt'
-      scaleType = scaleType || 'linear';
+    getD3Scale(scaleTypeArg) {
+      let scaleType = scaleTypeArg || 'linear';
+      if (scaleType === 'square root') scaleType = 'sqrt';
 
       if (this.axisConfig.isTimeDomain()) return d3.time.scale.utc(); // allow time scale
       if (this.axisConfig.isOrdinal()) return d3.scale.ordinal();

@@ -84,7 +84,7 @@ export default function LineChartFactory(Private) {
       }
 
       function cColor(d) {
-        return color(d.label);
+        return color(d.series);
       }
 
       function colorCircle(d) {
@@ -116,7 +116,7 @@ export default function LineChartFactory(Private) {
       .attr('cx', isHorizontal ? cx : cy)
       .attr('cy', isHorizontal ? cy : cx)
       .attr('class', 'circle-decoration')
-      .call(this.baseChart._addIdentifier)
+        .attr('data-label', data.label)
       .attr('fill', colorCircle);
 
       circles
@@ -127,7 +127,7 @@ export default function LineChartFactory(Private) {
       .attr('cy', isHorizontal ? cy : cx)
       .attr('fill', 'transparent')
       .attr('class', 'circle')
-      .call(this.baseChart._addIdentifier)
+      .attr('data-label', data.label)
       .attr('stroke', cColor)
       .attr('stroke-width', 0);
 
@@ -156,7 +156,8 @@ export default function LineChartFactory(Private) {
       const isHorizontal = this.getCategoryAxis().axisConfig.isHorizontal();
 
       const line = svg.append('g')
-      .attr('class', 'pathgroup lines');
+      .attr('class', 'pathgroup lines')
+      .attr('clip-path', 'url(#' + this.baseChart.clipPathId + ')');
 
       function cx(d) {
         if (ordered && ordered.date) {
@@ -170,7 +171,7 @@ export default function LineChartFactory(Private) {
       }
 
       line.append('path')
-      .call(this.baseChart._addIdentifier)
+      .attr('data-label', data.label)
       .attr('d', () => {
         const d3Line = d3.svg.line()
           .defined(function (d) {
@@ -182,8 +183,8 @@ export default function LineChartFactory(Private) {
         return d3Line(data.values);
       })
       .attr('fill', 'none')
-      .attr('stroke', function lineStroke(d) {
-        return color(d.label || data.label);
+      .attr('stroke', () => {
+        return color(data.label);
       })
       .attr('stroke-width', 2);
 

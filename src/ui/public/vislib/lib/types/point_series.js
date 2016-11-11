@@ -1,6 +1,37 @@
 import _ from 'lodash';
 
 export default function ColumnHandler(Private) {
+
+  const createSeries = (cfg, series) => {
+    const stacked = ['stacked', 'percentage', 'wiggle', 'silhouette'].includes(cfg.mode);
+    return {
+      type: 'point_series',
+      series: _.map(series, (seri) => {
+        return {
+          show: true,
+          type: cfg.type || 'line',
+          mode: stacked ? 'stacked' : 'normal',
+          interpolate: cfg.interpolate,
+          smoothLines: cfg.smoothLines,
+          drawLinesBetweenPoints: cfg.drawLinesBetweenPoints,
+          showCircles: cfg.showCircles,
+          radiusRatio: cfg.radiusRatio,
+          data: seri
+        };
+      })
+    };
+  };
+
+  const createCharts = (cfg, data) => {
+    if (data.rows || data.columns) {
+      const charts = data.rows ? data.rows : data.columns;
+      return charts.map(chart => {
+        return createSeries(cfg, chart.series);
+      });
+    }
+
+    return [createSeries(cfg, data.series)];
+  };
   /*
    * Create handlers for Area, Column, and Line charts which
    * are all nearly the same minus a few details
@@ -24,6 +55,8 @@ export default function ColumnHandler(Private) {
       }
 
       if (!config.valueAxes) {
+        let mode = config.mode;
+        if (['stacked', 'overlap'].includes(mode)) mode = 'normal';
         config.valueAxes = [
           {
             id: 'ValueAxis-1',
@@ -34,7 +67,7 @@ export default function ColumnHandler(Private) {
               defaultYExtents: config.defaultYExtents,
               min : isUserDefinedYAxis ? config.yAxis.min : undefined,
               max : isUserDefinedYAxis ? config.yAxis.max : undefined,
-              mode : config.mode
+              mode : mode
             },
             labels: {
               axisFormatter: data.data.yAxisFormatter || data.get('yAxisFormatter')
@@ -64,24 +97,8 @@ export default function ColumnHandler(Private) {
         ];
       }
 
-      if (!config.chart) {
-        const series = data.get('series');
-        config.chart = {
-          type: 'point_series',
-          series: _.map(series, (seri) => {
-            return {
-              show: true,
-              type: cfg.type || 'line',
-              mode: cfg.mode || 'normal',
-              interpolate: cfg.interpolate,
-              smoothLines: cfg.smoothLines,
-              drawLinesBetweenPoints: cfg.drawLinesBetweenPoints,
-              showCircles: cfg.showCircles,
-              radiusRatio: cfg.radiusRatio,
-              data: seri
-            };
-          })
-        };
+      if (!config.charts) {
+        config.charts = createCharts(cfg, data.data);
       }
 
       return config;

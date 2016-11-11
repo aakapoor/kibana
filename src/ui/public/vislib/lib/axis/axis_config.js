@@ -15,7 +15,7 @@ export default function AxisConfigFactory() {
       defaultYExtents: null,
       min: null,
       max: null,
-      mode: 'normal' // [percentage, normal, wiggle, silluete]
+      mode: 'normal' // [percentage, normal, wiggle, silhouette]
     },
     style: {
       color: '#ddd',
@@ -34,7 +34,7 @@ export default function AxisConfigFactory() {
       color: '#ddd',
       font: '"Open Sans", "Lato", "Helvetica Neue", Helvetica, Arial, sans-serif', // TODO
       fontSize: '8pt',
-      truncate: 100
+      truncate: 30
     },
     title: {
       text: '',
@@ -62,30 +62,42 @@ export default function AxisConfigFactory() {
   class AxisConfig {
     constructor(chartConfig, axisConfigArgs) {
       const typeDefaults = axisConfigArgs.type === 'category' ? categoryDefaults : valueDefaults;
-      this._values = _.defaultsDeep({}, axisConfigArgs, typeDefaults, defaults);
+      // _.defaultsDeep mutates axisConfigArgs nested values so we clone it first
+      const axisConfigArgsClone = _.cloneDeep(axisConfigArgs);
+      this._values = _.defaultsDeep({}, axisConfigArgsClone, typeDefaults, defaults);
 
       this._values.elSelector = this._values.elSelector.replace('{pos}', this._values.position);
       this._values.rootEl = chartConfig.get('el');
 
       this.data = chartConfig.data;
       if (this._values.type === 'category') {
-        this.values = this.data.xValues();
-        this.ordered = this.data.get('ordered');
+        if (!this._values.values) {
+          this.values = this.data.xValues();
+          this.ordered = this.data.get('ordered');
+        } else {
+          this.values = this._values.values;
+        }
         if (!this._values.labels.axisFormatter) {
           this._values.labels.axisFormatter = this.data.data.xAxisFormatter || this.data.get('xAxisFormatter');
         }
       }
 
       if (this._values.type === 'value') {
-        const isWiggleOrSilluete = chartConfig.get('mode') === 'wiggle' || chartConfig.get('mode') === 'silluete';
-        // if show was not explicitly set and wiggle or silluete option was checked
-        if (!axisConfigArgs.show && isWiggleOrSilluete) {
-          this._values.show = false;
+        const isWiggleOrSilluete = chartConfig.get('mode') === 'wiggle' || chartConfig.get('mode') === 'silhouette';
+        // if show was not explicitly set and wiggle or silhouette option was checked
+        if (isWiggleOrSilluete) {
+          this._values.scale.defaultYExtents = false;
+
+          if (!axisConfigArgs.show) {
+            this._values.show = false;
+            this._values.title.show = true;
+          }
         }
 
         // override axisFormatter (to replicate current behaviour)
         if (this.isPercentage()) {
           this._values.labels.axisFormatter = d3.format('%');
+          this._values.scale.defaultYExtents = true;
         }
 
         if (this.isLogScale()) {
@@ -97,24 +109,29 @@ export default function AxisConfigFactory() {
       // unless explicitly overriden by user
       if (this.isHorizontal() && this.isOrdinal()) {
         this._values.labels.filter = _.get(axisConfigArgs, 'labels.filter', false);
-        this._values.labels.rotate = _.get(axisConfigArgs, 'labels.rotate', 70);
+        this._values.labels.rotate = _.get(axisConfigArgs, 'labels.rotate', 90);
       }
 
       let offset;
+      let stacked = true;
       switch (this.get('scale.mode')) {
         case 'normal':
           offset = 'zero';
-          break;
-        case 'percentage':
-          offset = 'expand';
+          stacked = false;
           break;
         case 'grouped':
           offset = 'group';
+          stacked = false;
+          break;
+        case 'percentage':
+          offset = 'expand';
           break;
         default:
           offset = this.get('scale.mode');
       }
       this.set('scale.offset', _.get(axisConfigArgs, 'scale.offset', offset));
+      /* axis.scale.stacked means that axis stacking function should be run */
+      this.set('scale.stacked', stacked);
     };
 
     get(property, defaults = null) {

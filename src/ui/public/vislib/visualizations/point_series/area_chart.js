@@ -30,7 +30,7 @@ export default function AreaChartFactory(Private) {
    */
   class AreaChart extends PointSeri {
     constructor(handler, chartEl, chartData, seriesConfigArgs) {
-      super(handler, chartEl, chartData);
+      super(handler, chartEl, chartData, seriesConfigArgs);
 
       this.seriesConfig = _.defaults(seriesConfigArgs || {}, defaults);
       this.isOverlapping = (this.seriesConfig.mode !== 'stacked');
@@ -81,13 +81,14 @@ export default function AreaChartFactory(Private) {
 
       // Append path
       const path = layer.append('path')
-      .call(this.baseChart._addIdentifier)
+      .attr('data-label', data.label)
       .style('fill', () => {
         return color(data.label);
       })
       .classed('overlap_area', function () {
         return isOverlapping;
-      });
+      })
+      .attr('clip-path', 'url(#' + this.baseChart.clipPathId + ')');
 
       function x(d) {
         if (isTimeSeries) {
@@ -171,9 +172,9 @@ export default function AreaChartFactory(Private) {
       circles
       .enter()
       .append('circle')
-      .call(this.baseChart._addIdentifier)
-      .attr('stroke', function strokeColor(d) {
-        return color(d.label);
+      .attr('data-label', data.label)
+      .attr('stroke', () => {
+        return color(data.label);
       })
       .attr('fill', 'transparent')
       .attr('stroke-width', circleStrokeWidth);

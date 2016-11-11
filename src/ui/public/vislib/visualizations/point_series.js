@@ -31,50 +31,39 @@ export default function PointSeriesFactory(Private) {
       this.handler = handler;
       this.chartData = chartData;
       this.chartEl = chartEl;
-      this.chartConfig = handler.visConfig.get('chart');
+      this.chartConfig = this.findChartConfig();
       this.handler.pointSeries = this;
     }
 
-    shouldBeStacked(seriesConfig) {
-      const isHistogram = (seriesConfig.type === 'histogram');
-      const isArea = (seriesConfig.type === 'area');
-      const stacked = (seriesConfig.mode === 'stacked');
+    findChartConfig() {
+      const charts = this.handler.visConfig.get('charts');
+      const chartIndex = this.handler.data.chartData().indexOf(this.chartData);
+      return charts[chartIndex];
+    }
 
-      return (isHistogram || isArea) && stacked;
-    };
-
-    getStackedSeries(axis, series, first = false) {
-      const matchingSeries = [];
-      this.chartConfig.series.forEach((seriArgs, i) => {
-        const matchingAxis = seriArgs.valueAxis === axis.axisConfig.get('id') || (!seriArgs.valueAxis && first);
-        if (matchingAxis && this.shouldBeStacked(seriArgs)) {
-          matchingSeries.push(series[i]);
-        }
-      });
-      return this.handler.data.injectZeros(matchingSeries);
-    };
-
-    stackData(data) {
-      const stackedData = {};
-      this.handler.valueAxes.forEach((axis, i) => {
-        const id = axis.axisConfig.get('id');
-        stackedData[id] = this.getStackedSeries(axis, data.series, i === 0);
-        axis.stack(_.map(stackedData[id], 'values'));
-      });
-      return stackedData;
-    };
-
-    addClipPath(svg, width, height) {
-      // Prevents circles from being clipped at the top of the chart
+    addBackground(svg, width, height) {
       const startX = 0;
       const startY = 0;
-      const id = 'chart-area' + _.uniqueId();
+
+      return svg
+      .append('rect')
+      .attr('x', startX)
+      .attr('y', startY)
+      .attr('width', width)
+      .attr('height', height)
+      .attr('fill', 'transparent');
+    };
+
+    addClipPath(svg) {
+      const {width, height} = svg.node().getBBox();
+      const startX = 0;
+      const startY = 0;
+      this.clipPathId = 'chart-area' + _.uniqueId();
 
       // Creating clipPath
       return svg
-      .attr('clip-path', 'url(#' + id + ')')
       .append('clipPath')
-      .attr('id', id)
+      .attr('id', this.clipPathId)
       .append('rect')
       .attr('x', startX)
       .attr('y', startY)
@@ -183,8 +172,8 @@ export default function PointSeriesFactory(Private) {
       let self = this;
       let $elem = $(this.chartEl);
       let margin = this.handler.visConfig.get('style.margin');
-      let elWidth = this.chartConfig.width = $elem.width();
-      let elHeight = this.chartConfig.height = $elem.height();
+      const width = this.chartConfig.width = $elem.width();
+      const height = this.chartConfig.height = $elem.height();
       let xScale = this.handler.categoryAxes[0].getScale();
       let minWidth = 50;
       let minHeight = 50;
@@ -193,15 +182,11 @@ export default function PointSeriesFactory(Private) {
       let timeMarker;
       let div;
       let svg;
-      let width;
-      let height;
 
       return function (selection) {
         selection.each(function (data) {
           const el = this;
 
-          width = elWidth;
-          height = elHeight;
           if (width < minWidth || height < minHeight) {
             throw new errors.ContainerTooSmall();
           }
@@ -213,13 +198,14 @@ export default function PointSeriesFactory(Private) {
           div = d3.select(el);
 
           svg = div.append('svg')
-          .attr('width', elWidth)
-          .attr('height', elHeight)
-          .append('g');
+          .attr('width', width)
+          .attr('height', height);
 
-          self.addClipPath(svg, width, height);
+          self.addBackground(svg, width, height);
+          self.addClipPath(svg);
+          self.addEvents(svg);
+          self.createEndZones(svg);
 
-          self.stackData(data);
           self.series = [];
           _.each(self.chartConfig.series, (seriArgs, i) => {
             const SeriClass = seriTypes[seriArgs.type || self.handler.visConfig.get('chart.type')];
@@ -228,9 +214,6 @@ export default function PointSeriesFactory(Private) {
             svg.call(series.draw());
             self.series.push(series);
           });
-
-          self.addEvents(svg);
-          self.createEndZones(svg);
 
           if (addTimeMarker) {
             timeMarker.render(svg);
